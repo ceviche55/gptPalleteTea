@@ -17,6 +17,7 @@ type sessionState int
 const (
 	promptView sessionState = iota
 	paletteView
+	setUpView
 )
 
 type mainModelStruct struct {
@@ -53,15 +54,6 @@ func (mm mainModelStruct) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return mm, tea.Quit
-		case "enter":
-			if mm.prompt == "" {
-				mm.prompt = mm.textInput.Value()
-
-				mm.palette = aiPaletteCall(mm.apiKey, mm.prompt)
-
-				mm.state = paletteView
-			}
-			return mm, nil
 		}
 	}
 
