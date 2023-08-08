@@ -12,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Structure for managing state
 type sessionState int
 
 const (
@@ -20,12 +21,22 @@ const (
 	setUpView
 )
 
+// Top level model/struct
 type mainModelStruct struct {
 	prompt    string
 	textInput textinput.Model
-	state     sessionState
+	currState sessionState
 	palette   []string
 	apiKey    string
+}
+
+// Switching states with cmd and msg
+type changeStateMsg struct{ newState sessionState }
+
+func changeState(newState sessionState) tea.Cmd {
+	return func() tea.Msg {
+		return changeStateMsg{newState}
+	}
 }
 
 func initialModel(apiKeyStr string) mainModelStruct {
@@ -37,70 +48,96 @@ func initialModel(apiKeyStr string) mainModelStruct {
 
 	return mainModelStruct{
 		textInput: newTextInput,
-		state:     promptView,
+		currState: promptView,
 		apiKey:    apiKeyStr,
 	}
 }
 
-func (mm mainModelStruct) Init() tea.Cmd {
+func (mms mainModelStruct) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (mm mainModelStruct) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (mms mainModelStruct) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
-			return mm, tea.Quit
+			return mms, tea.Quit
+		case "enter":
+			if mms.currState == promptView {
+				mms.prompt = mms.textInput.Value()
+
+				mms.palette = aiPaletteCall(mms.apiKey, mms.prompt)
+
+				// changeState(paletteView)
+				mms.currState = paletteView
+			}
+			return mms, nil
 		}
+	case changeStateMsg:
+		if mms.currState == msg.newState {
+			log.Print("State was same")
+			break
+		}
+
+		mms.currState = msg.newState
+		log.Print("Reached state change")
+
+		return mms, nil
 	}
 
-	mm.textInput, cmd = mm.textInput.Update(msg)
+	mms.textInput, cmd = mms.textInput.Update(msg)
 
-	return mm, cmd
+	return mms, cmd
 }
 
-func (mm mainModelStruct) View() string {
+func (mms mainModelStruct) View() string {
 
 	var str string
 
-	if mm.state == promptView {
+	switch mms.currState {
+	case promptView:
 		str += fmt.Sprintf(
 			"What vibe do you want the palette to be?\n\n%s\n\n%s",
-			mm.textInput.View(),
+			mms.textInput.View(),
 			"(Ctrl + C or Esc to quit)",
 		) + "\n"
-	} else {
-		str += mm.prompt
+	case paletteView:
+		str += mms.prompt
 
 		str += "\n\n"
 
 		var renderedArray []string
 
-		for i := 0; i < len(mm.palette); i++ {
+		for i := 0; i < len(mms.palette); i++ {
 
-			preRenderedElement := lipgloss.NewStyle().
-				Background(lipgloss.Color(mm.palette[i])).
-				Padding(0, 1, 6).
-				Margin(0, 1).
-				Border(lipgloss.NormalBorder()).
-				Render(mm.palette[i])
+			colorElement := lipgloss.NewStyle().
+				Background(lipgloss.Color(mms.palette[i])).
+				Padding(3, 0).
+				// Margin(0, 1).
+				// Border(lipgloss.NormalBorder()).
+				Render("       ")
 
-			palleteElement := lipgloss.NewStyle().
-				Padding(1).
-				Margin(0, 1).
-				Border(lipgloss.NormalBorder()).
-				Render(mm.palette[i])
+			hexCodeElement := lipgloss.NewStyle().
+				// Padding(1).
+				// Margin(0, 1).
+				// Border(lipgloss.NormalBorder()).
+				Render(mms.palette[i])
 
-			renderedElement := lipgloss.JoinVertical(
+			columnElementRaw := lipgloss.JoinVertical(
 				lipgloss.Top,
-				palleteElement,
-				preRenderedElement,
+				hexCodeElement,
+				colorElement,
 			)
 
-			renderedArray = append(renderedArray, renderedElement)
+			columnElement := lipgloss.NewStyle().
+				// Margin(0, 1).
+				Border(lipgloss.NormalBorder()).
+				Render(columnElementRaw)
+
+			renderedArray = append(renderedArray, columnElement)
 		}
 
 		str += lipgloss.JoinHorizontal(lipgloss.Center, renderedArray...)
