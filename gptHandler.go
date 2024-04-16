@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	openai "github.com/sashabaranov/go-openai"
 	"log"
 	"regexp"
 	"strings"
+
+	openai "github.com/sashabaranov/go-openai"
 )
 
 var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9#]+`)
@@ -19,10 +20,10 @@ func aiPaletteCall(apiKey, prompt string) []string {
 	openaiClient := openai.NewClient(apiKey)
 	bgCxt := context.Background()
 
-	prompt = "Give me a palette, limited to 6 colors max, in the form of a comma deliminated list, meaning that there should be a comma and space, that also includes the pound symbol, and the vibe or essence of the palette should be " + prompt + ". Under no circumstances are you to return anything that isn't hex codes colors, pound symbols, or other formating characters that were explicitly asked for."
+	prompt = "Give me a palette in the form of a comma deliminated list of hex colors, limited to a maximum of 6 colors, that also includes the pound symbol for each hex code, and the vibe or essence of the palette should be " + prompt + ". Do not return anything that isn't the hex codes."
 
 	compReq := openai.CompletionRequest{
-		Model:     openai.GPT3TextDavinci003,
+		Model:     openai.GPT3Dot5TurboInstruct,
 		MaxTokens: 64,
 		Prompt:    prompt,
 	}
